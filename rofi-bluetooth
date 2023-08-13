@@ -137,10 +137,10 @@ toggle_connection() {
 device_paired() {
     device_info=$(bluetoothctl info "$1")
     if echo "$device_info" | grep -q "Paired: yes"; then
-        echo "Paired: yes"
+        echo "Unpair/Remove device"
         return 0
     else
-        echo "Paired: no"
+        echo "Pair device"
         return 1
     fi
 }
@@ -229,7 +229,7 @@ device_menu() {
     fi
     paired=$(device_paired "$mac")
     trusted=$(device_trusted "$mac")
-    options="$connected\n$paired\n$trusted\nRemove device\n$divider\n$goback\nExit"
+    options="$connected\n$trusted\n$paired\n$divider\n$goback\nExit"
 
     # Open rofi menu, read chosen option
     chosen="$(echo -e "$options" | $rofi_command "$device_name")"
@@ -242,15 +242,12 @@ device_menu() {
         "$connected")
             toggle_connection "$mac"
             ;;
-        "$paired")
-            toggle_paired "$mac"
-            ;;
         "$trusted")
             toggle_trust "$mac"
             ;;
-        "Remove device")
-            remove "$mac"
-            ;&
+        "$paired")
+            toggle_paired "$mac"
+            ;;
         "$goback")
             show_menu
             ;;
