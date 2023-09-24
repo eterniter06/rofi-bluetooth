@@ -129,7 +129,9 @@ toggle_connection() {
         device_menu "$device"
     else
         bluetoothctl connect "$1"
-        device_menu "$device"
+        if [ $? -ne 0 ]; then
+            device_menu "$device"
+        fi
     fi
 }
 
