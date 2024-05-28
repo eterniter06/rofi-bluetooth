@@ -183,9 +183,15 @@ toggle_trust() {
 
 # Prints a short string with the current bluetooth status
 # Useful for status bars like polybar, etc.
+
+# This has been modified to display battery level along with colors for xmobar
+# You may either let it remain and continue to use this script as you would or
+# modify or remove the xmobar specific lines to use in a different status bar
+# xmobar specific variant must be invoked with --status --low=#color --med=#color --high=#color --full=#color
 print_status() {
-    if power_on; then
-        printf ''
+    if ((power_on != 0)); then
+        printf ""
+    else
 
         paired_devices_cmd="devices Paired"
         # Check if an outdated version of bluetoothctl is used to preserve backwards compatibility
@@ -198,20 +204,62 @@ print_status() {
 
         for device in "${paired_devices[@]}"; do
             if device_connected "$device"; then
-                device_alias=$(bluetoothctl info "$device" | grep "Alias" | cut -d ' ' -f 2-)
+                is_any_device_connected=1
+            fi
+        done
+
+        if ((!is_any_device_connected));then
+            printf ''
+        fi
+
+        for device in "${paired_devices[@]}"; do
+            if device_connected "$device"; then
+                device_alias="$(bluetoothctl info "$device" | grep "Alias" | cut -d ' ' -f 2-)"
+
+                mac_formatted="$(echo "$device" | tr ":" "_")"
+                battery_level="$(dbus-send --print-reply=literal --system --dest=org.bluez /org/bluez/hci0/dev_$mac_formatted org.freedesktop.DBus.Properties.Get string:"org.bluez.Battery1" string:"Percentage" | grep -oE "[0-9]*")"
+
+                # xmobar specific
+                if [ "$#" -eq 4 ]; then
+                    if (( battery_level <= 30 ));then
+                        battery_level_with_percent="<fc="$1">$battery_level%</fc>"
+                        battery_icon="<fc="$1"></fc>"
+                    elif (( battery_level <= 50));then
+                        battery_level_with_percent="<fc="$2">$battery_level%</fc>"
+                        battery_icon="<fc="$2"></fc>"
+                    elif (( battery_level <= 70 ));then
+                        battery_level_with_percent="<fc="$3">$battery_level%</fc>"
+                        battery_icon="<fc="$3"></fc>"
+                    else
+                        battery_level_with_percent="<fc="$4">$battery_level%</fc>"
+                        battery_icon="<fc="$4"></fc>"
+                    fi
+                else
+                    # generic
+                    if (( battery_level <= 30 ));then
+                        battery_icon=""
+                    elif (( battery_level <= 50));then
+                        battery_icon=""
+                    elif (( battery_level <= 70 ));then
+                        battery_icon=""
+                    else
+                        battery_icon=""
+                    fi
+
+                    battery_level_with_percent="$battery_level%"
+                fi
 
                 if [ $counter -gt 0 ]; then
-                    printf ", %s" "$device_alias"
+                    separator="｜"
+                    printf "%s%s  $battery_icon %s" "$separator" "$device_alias" "$battery_level_with_percent"
                 else
-                    printf " %s" "$device_alias"
+                    printf "%s  $battery_icon %s" "$device_alias" "$battery_level_with_percent"
                 fi
 
                 ((counter++))
             fi
         done
         printf "\n"
-    else
-        echo ""
     fi
 }
 
@@ -311,7 +359,33 @@ rofi_command="rofi -dmenu -i $* -p"
 
 case "$1" in
     --status)
-        print_status
+
+        # xmobar specific
+        if [ "$#" -eq 5 ];then
+            for i in {2..5}; do
+                case "${!i%%=*}" in
+                    --low)
+                        low="${2:6}"
+                        ;;
+                    --med)
+                        med="${3:6}"
+                        ;;
+                    --high)
+                        high="${4:7}"
+                        ;;
+                    --full)
+                        full="${5:7}"
+                        ;;
+                    *)
+                        echo "Error"
+                esac
+            done
+
+            print_status "$low" "$med" "$high" "$full"
+        else
+            # generic
+            print_status
+        fi
         ;;
     *)
         show_menu
