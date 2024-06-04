@@ -189,7 +189,7 @@ toggle_trust() {
 # modify or remove the xmobar specific lines to use in a different status bar
 # xmobar specific variant must be invoked with --status --low=#color --med=#color --high=#color --full=#color
 print_status() {
-    if ((power_on != 0)); then
+    if ! power_on; then
         printf ""
     else
 
